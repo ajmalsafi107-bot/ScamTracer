@@ -17,9 +17,6 @@ function HomePage({ onReportClick, onOpenReports, onOpenFraudType }: HomePagePro
           </a>
           <nav className="nav-links" aria-label="Main navigation">
             <a href="#">Hem</a>
-            <a href="#">Bedrägeriarter</a>
-            <a href="#">Artiklar</a>
-            <a href="#">Om oss</a>
           </nav>
           <button className="report-btn" type="button" onClick={onReportClick}>
             Rapportera bluff

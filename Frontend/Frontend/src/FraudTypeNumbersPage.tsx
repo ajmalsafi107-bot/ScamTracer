@@ -80,9 +80,6 @@ function FraudTypeNumbersPage({
             <a href="#" onClick={onBack}>
               Hem
             </a>
-            <a href="#">Bedrägeriarter</a>
-            <a href="#">Artiklar</a>
-            <a href="#">Om oss</a>
           </nav>
           <button className="report-btn" type="button" onClick={onReportClick}>
             Rapportera bluff

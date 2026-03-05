@@ -59,9 +59,6 @@ function ReportPage({ onCancel }: ReportPageProps) {
             <a href="#" onClick={onCancel}>
               Hem
             </a>
-            <a href="#">Bedrägeriarter</a>
-            <a href="#">Artiklar</a>
-            <a href="#">Om oss</a>
           </nav>
         </div>
       </header>
