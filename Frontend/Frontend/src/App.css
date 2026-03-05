@@ -204,6 +204,17 @@
   margin-top: 0.4rem;
 }
 
+.search-result-link {
+  margin-top: 0.75rem;
+  border: 1px solid #bcd0f2;
+  border-radius: 10px;
+  background: #eef4ff;
+  color: var(--brand-dark);
+  padding: 0.5rem 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .reports-section {
   padding: 2.2rem 0 3rem;
 }
@@ -272,6 +283,37 @@
 
 .reports-list li p {
   margin: 0.25rem 0 0;
+}
+
+.report-item-button {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+
+.report-item-button:focus-visible {
+  outline: 2px solid #9cb8ea;
+  border-radius: 8px;
+}
+
+.reports-meta {
+  margin-top: 0.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--muted);
+}
+
+.risk-chip {
+  border: 1px solid;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .report-main {
@@ -400,6 +442,67 @@
   color: var(--muted);
   display: grid;
   gap: 0.55rem;
+}
+
+.reports-detail-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 1.2rem;
+}
+
+.reports-detail-card h1 {
+  margin: 0.9rem 0 0;
+  color: var(--brand-dark);
+  font-size: clamp(1.4rem, 3vw, 2rem);
+}
+
+.reports-list-detailed {
+  margin-top: 1rem;
+}
+
+.risk-level {
+  margin-top: 0.9rem;
+  border-radius: 12px;
+  border: 1px solid;
+  padding: 0.85rem 0.95rem;
+}
+
+.risk-level-title {
+  margin: 0;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.risk-level-value {
+  margin: 0.3rem 0 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.risk-level-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.94rem;
+}
+
+.risk-low {
+  background: #ecfdf3;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.risk-medium {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #9a3412;
+}
+
+.risk-high {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
 }
 
 @media (max-width: 760px) {

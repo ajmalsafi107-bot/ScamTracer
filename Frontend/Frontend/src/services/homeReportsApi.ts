@@ -1,6 +1,6 @@
 import type { HomeReportsResponse } from '../types/homeReports'
 
-export async function getHomeReports(mode: 'top' | 'recent'): Promise<HomeReportsResponse> {
+export async function getHomeReports(mode: 'top' | 'recent' | 'searched'): Promise<HomeReportsResponse> {
   const res = await fetch(`/api/homepage-reports?mode=${mode}&limit=10`)
   const raw = await res.text()
   let data: (Partial<HomeReportsResponse> & { error?: string }) | null = null

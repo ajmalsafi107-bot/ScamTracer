@@ -3,9 +3,11 @@ import NumberSearch from './components/NumberSearch'
 
 type HomePageProps = {
   onReportClick: () => void
+  onOpenReports: (number: string) => void
+  onOpenFraudType: (fraudType: string) => void
 }
 
-function HomePage({ onReportClick }: HomePageProps) {
+function HomePage({ onReportClick, onOpenReports, onOpenFraudType }: HomePageProps) {
   return (
     <div className="page">
       <header className="site-header">
@@ -33,7 +35,7 @@ function HomePage({ onReportClick }: HomePageProps) {
             Osäker på ett meddelande eller samtal? Ta reda på om numret är rapporterat som bluff i Sverige.
           </p>
 
-          <NumberSearch />
+          <NumberSearch onOpenReports={onOpenReports} />
         </div>
       </main>
 
@@ -41,7 +43,7 @@ function HomePage({ onReportClick }: HomePageProps) {
         <div className="container">
           <h2>Senaste rapporterade bluffar</h2>
           <p>Nyligen anmälda bedrägeriförsök i Sverige</p>
-          <HomeReportsList />
+          <HomeReportsList onOpenReports={onOpenReports} onOpenFraudType={onOpenFraudType} />
         </div>
       </section>
     </div>

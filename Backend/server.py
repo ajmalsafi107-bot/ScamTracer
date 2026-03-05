@@ -117,6 +117,59 @@ class Handler(BaseHTTPRequestHandler):
             self._write_json(status_code, response_body)
             return
 
+        if parsed.path == "/fraud-types":
+            try:
+                limit = int(params.get("limit", ["20"])[0])
+            except ValueError:
+                limit = 20
+            queries = self._get_queries()
+            rows = queries.get_fraud_type_number_counts(limit)
+            status_code, response_body = (
+                200,
+                {
+                    "items": [
+                        {
+                            "fraud_type": row["fraud_type"],
+                            "numbers_count": int(row["numbers_count"]),
+                        }
+                        for row in rows
+                    ]
+                },
+            )
+            self._write_json(status_code, response_body)
+            return
+
+        if parsed.path == "/fraud-type-numbers":
+            fraud_type = params.get("type", [""])[0]
+            try:
+                limit = int(params.get("limit", ["100"])[0])
+            except ValueError:
+                limit = 100
+            try:
+                queries = self._get_queries()
+                rows = queries.get_numbers_by_fraud_type(fraud_type, limit)
+                status_code, response_body = (
+                    200,
+                    {
+                        "fraud_type": fraud_type,
+                        "items": [
+                            {
+                                "number": row["phone_number"],
+                                "reports_count": int(row["reports_count"]),
+                                "search_count": int(row.get("search_count", 0)),
+                                "last_reported_at": row.get("last_reported_at"),
+                            }
+                            for row in rows
+                        ],
+                    },
+                )
+            except Exception as exc:
+                self._write_json(500, {"error": str(exc)})
+                return
+
+            self._write_json(status_code, response_body)
+            return
+
         if parsed.path == "/reports":
             phone = params.get("phone", [""])[0]
             queries = self._get_queries()
@@ -144,6 +197,18 @@ class Handler(BaseHTTPRequestHandler):
             self._write_json(status_code, response_body)
             return
 
+        if parsed.path == "/number-stats":
+            number = params.get("number", [""])[0]
+            try:
+                queries = self._get_queries()
+                status_code, response_body = (200, queries.get_number_stats(number))
+            except Exception as exc:
+                self._write_json(500, {"error": str(exc)})
+                return
+
+            self._write_json(status_code, response_body)
+            return
+
         if parsed.path == "/homepage-reports":
             params = parse_qs(parsed.query)
             mode = params.get("mode", ["recent"])[0]
@@ -161,10 +226,23 @@ class Handler(BaseHTTPRequestHandler):
                             "id": idx + 1,
                             "number": row["phone_number"],
                             "reports_count": int(row["reports_count"]),
+                            "search_count": int(row.get("search_count", 0)),
                         }
                         for idx, row in enumerate(rows)
                     ]
                     status_code, response_body = (200, {"mode": "top", "items": items})
+                elif mode == "searched":
+                    rows = queries.get_top_searched_unreported_numbers(limit)
+                    items = [
+                        {
+                            "id": idx + 1,
+                            "number": row["phone_number"],
+                            "reports_count": 0,
+                            "search_count": int(row.get("search_count", 0)),
+                        }
+                        for idx, row in enumerate(rows)
+                    ]
+                    status_code, response_body = (200, {"mode": "searched", "items": items})
                 else:
                     rows = queries.get_recent_reports(limit)
                     # Group recent list by number to avoid duplicates in UI.
@@ -179,6 +257,7 @@ class Handler(BaseHTTPRequestHandler):
                                 "fraud_types": set(),
                                 "description": str(row.get("description", "")),
                                 "reported_at": row.get("reported_at"),
+                                "search_count": int(row.get("search_count", 0)),
                             }
                         merged[number]["reports_count"] += 1
                         merged[number]["fraud_types"].add(str(row.get("fraud_type", "")))
@@ -193,6 +272,7 @@ class Handler(BaseHTTPRequestHandler):
                                 "fraud_type": ", ".join(sorted(t for t in value["fraud_types"] if t)),
                                 "description": value["description"],
                                 "reported_at": value["reported_at"],
+                                "search_count": value["search_count"],
                             }
                         )
                     items.sort(key=lambda item: str(item.get("reported_at") or ""), reverse=True)

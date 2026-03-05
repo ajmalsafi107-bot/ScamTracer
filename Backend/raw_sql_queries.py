@@ -96,9 +96,15 @@ class FraudQueries:
               pn.phone_number,
               fr.fraud_type,
               fr.description,
-              fr.reported_at
+              fr.reported_at,
+              coalesce(ps.search_count, 0) as search_count
             from fraud_reports fr
             join phone_numbers pn on pn.id = fr.phone_id
+            left join (
+              select phone_id, count(*) as search_count
+              from phone_searches
+              group by phone_id
+            ) ps on ps.phone_id = pn.id
             order by fr.reported_at desc
             limit %s;
         """
@@ -111,11 +117,40 @@ class FraudQueries:
         sql = """
             select
               pn.phone_number,
-              count(fr.id) as reports_count
+              count(fr.id) as reports_count,
+              coalesce(ps.search_count, 0) as search_count
             from fraud_reports fr
             join phone_numbers pn on pn.id = fr.phone_id
-            group by pn.phone_number
+            left join (
+              select phone_id, count(*) as search_count
+              from phone_searches
+              group by phone_id
+            ) ps on ps.phone_id = pn.id
+            group by pn.phone_number, ps.search_count
             order by reports_count desc
+            limit %s;
+        """
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(sql, (limit,))
+            return list(cur.fetchall())
+
+    def get_top_searched_unreported_numbers(self, limit: int = 10) -> list[dict[str, Any]]:
+        sql = """
+            select
+              pn.phone_number,
+              ps.search_count as search_count
+            from phone_numbers pn
+            join (
+              select phone_id, count(*) as search_count
+              from phone_searches
+              group by phone_id
+            ) ps on ps.phone_id = pn.id
+            where not exists (
+              select 1
+              from fraud_reports fr
+              where fr.phone_id = pn.id
+            )
+            order by ps.search_count desc, pn.phone_number asc
             limit %s;
         """
         with self._connect() as conn, conn.cursor() as cur:
@@ -135,6 +170,90 @@ class FraudQueries:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(sql)
             return list(cur.fetchall())
+
+    def get_fraud_type_number_counts(self, limit: int = 20) -> list[dict[str, Any]]:
+        sql = """
+            select
+              fr.fraud_type,
+              count(distinct pn.phone_number) as numbers_count
+            from fraud_reports fr
+            join phone_numbers pn on pn.id = fr.phone_id
+            where fr.fraud_type is not null and fr.fraud_type <> ''
+            group by fr.fraud_type
+            order by numbers_count desc, fr.fraud_type asc
+            limit %s;
+        """
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(sql, (limit,))
+            return list(cur.fetchall())
+
+    def get_numbers_by_fraud_type(self, fraud_type: str, limit: int = 100) -> list[dict[str, Any]]:
+        cleaned_type = (fraud_type or "").strip()
+        if not cleaned_type:
+            raise ValueError("Invalid fraud type")
+
+        sql = """
+            select
+              pn.phone_number,
+              count(fr.id) as reports_count,
+              coalesce(ps.search_count, 0) as search_count,
+              max(fr.reported_at) as last_reported_at
+            from fraud_reports fr
+            join phone_numbers pn on pn.id = fr.phone_id
+            left join (
+              select phone_id, count(*) as search_count
+              from phone_searches
+              group by phone_id
+            ) ps on ps.phone_id = pn.id
+            where fr.fraud_type = %s
+            group by pn.phone_number, ps.search_count
+            order by reports_count desc, search_count desc, pn.phone_number asc
+            limit %s;
+        """
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(sql, (cleaned_type, limit))
+            return list(cur.fetchall())
+
+    def get_number_stats(self, phone_number: str) -> dict[str, Any]:
+        normalized = normalize_phone_number(phone_number)
+        if not normalized:
+            raise ValueError("Invalid phone number")
+
+        sql = """
+            select
+              pn.phone_number,
+              coalesce(ps.search_count, 0) as search_count,
+              coalesce(fr.reports_count, 0) as reports_count
+            from phone_numbers pn
+            left join (
+              select phone_id, count(*) as search_count
+              from phone_searches
+              group by phone_id
+            ) ps on ps.phone_id = pn.id
+            left join (
+              select phone_id, count(*) as reports_count
+              from fraud_reports
+              group by phone_id
+            ) fr on fr.phone_id = pn.id
+            where pn.phone_number = %s
+            limit 1;
+        """
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(sql, (normalized,))
+            row = cur.fetchone()
+
+        if not row:
+            return {
+                "number": normalized,
+                "search_count": 0,
+                "reports_count": 0,
+            }
+
+        return {
+            "number": str(row["phone_number"]),
+            "search_count": int(row["search_count"]),
+            "reports_count": int(row["reports_count"]),
+        }
 
     def search_number_insights(self, phone_number: str) -> dict[str, Any]:
         phone_id, normalized = self._resolve_phone_id(phone_number)

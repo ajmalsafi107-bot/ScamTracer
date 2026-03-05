@@ -3,7 +3,11 @@ import { useState } from 'react'
 import { searchNumber } from '../services/searchApi'
 import type { SearchResult } from '../types/search'
 
-function NumberSearch() {
+type NumberSearchProps = {
+  onOpenReports: (number: string) => void
+}
+
+function NumberSearch({ onOpenReports }: NumberSearchProps) {
   const [number, setNumber] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -49,13 +53,23 @@ function NumberSearch() {
           <p>Antal rapporter: {result.reports_count}</p>
 
           {result.reports_count > 0 ? (
-            <ul>
-              {result.reports.map((report) => (
-                <li key={report.id}>
-                  <strong>{report.fraud_type}</strong>: {report.description}
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul>
+                {result.reports.slice(0, 3).map((report) => (
+                  <li key={report.id}>
+                    <strong>{report.fraud_type}</strong>: {report.description}
+                  </li>
+                ))}
+              </ul>
+              {result.reports.length > 3 && <p>Visar 3 av {result.reports.length} rapporter.</p>}
+              <button
+                type="button"
+                className="search-result-link"
+                onClick={() => onOpenReports(result.number)}
+              >
+                Visa alla rapporter för numret
+              </button>
+            </>
           ) : (
             <p>Inga rapporter hittades för numret.</p>
           )}
