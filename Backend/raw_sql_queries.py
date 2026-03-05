@@ -35,15 +35,25 @@ class FraudQueries:
         if not normalized:
             raise ValueError("Invalid phone number")
 
-        sql = """
-            insert into phone_numbers(phone_number)
-            values (%s)
-            on conflict (phone_number)
-            do update set phone_number = excluded.phone_number
-            returning id, phone_number;
-        """
         with self._connect() as conn, conn.cursor() as cur:
-            cur.execute(sql, (normalized,))
+            cur.execute(
+                """
+                insert into phone_numbers(phone_number)
+                values (%s)
+                on conflict (phone_number) do nothing
+                returning id, phone_number;
+                """,
+                (normalized,),
+            )
+            row = cur.fetchone()
+            if row:
+                return int(row["id"]), str(row["phone_number"])
+
+            # Conflict path: fetch existing row.
+            cur.execute(
+                "select id, phone_number from phone_numbers where phone_number = %s;",
+                (normalized,),
+            )
             row = cur.fetchone()
             if not row:
                 raise RuntimeError("Could not resolve phone id")
@@ -51,17 +61,21 @@ class FraudQueries:
 
     # 1) FUNCTION/PROCEDURE USE: calls SQL function submit_fraud_report(...)
     def submit_fraud_report(self, phone_number: str, fraud_type: str, description: str) -> None:
+        normalized = normalize_phone_number(phone_number)
+        if not normalized:
+            raise ValueError("Invalid phone number")
+
         # Prefer assignment function/procedure call when available.
         sql = "select submit_fraud_report(%s::varchar, %s::varchar, %s::text);"
         try:
             with self._connect() as conn, conn.cursor() as cur:
-                cur.execute(sql, (phone_number, fraud_type, description))
+                cur.execute(sql, (normalized, fraud_type, description))
             return
         except psycopg.errors.UndefinedFunction:
             # Fallback so app still works if function is not created yet.
             pass
 
-        phone_id, _ = self._resolve_phone_id(phone_number)
+        phone_id, _ = self._resolve_phone_id(normalized)
         insert_sql = """
             insert into fraud_reports(phone_id, fraud_type, description)
             values (%s, %s, %s);
