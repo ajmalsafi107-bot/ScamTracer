@@ -31,6 +31,7 @@ class FraudQueries:
         return psycopg.connect(self._config.dsn, row_factory=dict_row)
 
     def _resolve_phone_id(self, phone_number: str) -> tuple[int, str]:
+        # Inserts a normalized number if missing, otherwise returns existing row id.
         normalized = normalize_phone_number(phone_number)
         if not normalized:
             raise ValueError("Invalid phone number")
@@ -59,13 +60,12 @@ class FraudQueries:
                 raise RuntimeError("Could not resolve phone id")
             return int(row["id"]), str(row["phone_number"])
 
-    # 1) FUNCTION/PROCEDURE USE: calls SQL function submit_fraud_report(...)
     def submit_fraud_report(self, phone_number: str, fraud_type: str, description: str) -> None:
+        # Creates a fraud report via SQL function, with raw insert fallback if needed.
         normalized = normalize_phone_number(phone_number)
         if not normalized:
             raise ValueError("Invalid phone number")
 
-        # Prefer assignment function/procedure call when available.
         sql = "select submit_fraud_report(%s::varchar, %s::varchar, %s::text);"
         try:
             with self._connect() as conn, conn.cursor() as cur:
@@ -83,8 +83,8 @@ class FraudQueries:
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(insert_sql, (phone_id, fraud_type, description))
 
-    # 2) MULTIRELATION + JOIN: reports for a phone number
     def get_reports_by_phone(self, phone_number: str) -> list[dict[str, Any]]:
+        # Returns all reports for one normalized phone number, newest first.
         normalized = normalize_phone_number(phone_number)
         sql = """
             select
@@ -102,8 +102,8 @@ class FraudQueries:
             cur.execute(sql, (normalized,))
             return list(cur.fetchall())
 
-    # 3) MULTIRELATION + JOIN: recent feed
     def get_recent_reports(self, limit: int = 20) -> list[dict[str, Any]]:
+        # Returns recent reports with per-number search counts for the homepage feed.
         sql = """
             select
               fr.id,
@@ -126,8 +126,8 @@ class FraudQueries:
             cur.execute(sql, (limit,))
             return list(cur.fetchall())
 
-    # 4) GROUP BY + JOIN: top reported numbers
     def get_top_numbers(self, limit: int = 10) -> list[dict[str, Any]]:
+        # Returns most reported numbers with total reports and search counts.
         sql = """
             select
               pn.phone_number,
@@ -149,6 +149,7 @@ class FraudQueries:
             return list(cur.fetchall())
 
     def get_top_searched_unreported_numbers(self, limit: int = 10) -> list[dict[str, Any]]:
+        # Returns most searched numbers that still have zero reports.
         sql = """
             select
               pn.phone_number,
@@ -171,8 +172,8 @@ class FraudQueries:
             cur.execute(sql, (limit,))
             return list(cur.fetchall())
 
-    # 5) GROUP BY: fraud type statistics
     def get_fraud_type_stats(self) -> list[dict[str, Any]]:
+        # Returns report totals grouped by fraud type.
         sql = """
             select
               fr.fraud_type,
@@ -186,6 +187,7 @@ class FraudQueries:
             return list(cur.fetchall())
 
     def get_fraud_type_number_counts(self, limit: int = 20) -> list[dict[str, Any]]:
+        # Returns fraud types ranked by number of distinct reported phone numbers.
         sql = """
             select
               fr.fraud_type,
@@ -202,6 +204,7 @@ class FraudQueries:
             return list(cur.fetchall())
 
     def get_numbers_by_fraud_type(self, fraud_type: str, limit: int = 100) -> list[dict[str, Any]]:
+        # Returns numbers reported under one fraud type with report/search counts.
         cleaned_type = (fraud_type or "").strip()
         if not cleaned_type:
             raise ValueError("Invalid fraud type")
@@ -229,6 +232,7 @@ class FraudQueries:
             return list(cur.fetchall())
 
     def get_number_stats(self, phone_number: str) -> dict[str, Any]:
+        # Returns one number's aggregated search and report totals.
         normalized = normalize_phone_number(phone_number)
         if not normalized:
             raise ValueError("Invalid phone number")
@@ -270,10 +274,10 @@ class FraudQueries:
         }
 
     def search_number_insights(self, phone_number: str) -> dict[str, Any]:
+        # Logs a search event, then returns search total plus matching reports.
         phone_id, normalized = self._resolve_phone_id(phone_number)
 
         with self._connect() as conn, conn.cursor() as cur:
-            # Track search count
             cur.execute("insert into phone_searches(phone_id) values (%s);", (phone_id,))
 
             cur.execute("select count(*) as total from phone_searches where phone_id = %s;", (phone_id,))
